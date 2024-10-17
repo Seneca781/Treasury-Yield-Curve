@@ -21,7 +21,7 @@ def prepare_yield_curve(bonds_data):
     for bond in bonds_data:
         if bond['symbol'].startswith('US'):
             maturities.append(bond['symbol'])
-            yields.append(float(bond['last'].replace('%', '').strip()) / 100)  # Convert to decimal
+            yields.append(float(bond['last'].replace('%', '').strip()))  # Convert to decimal
 
     return maturities, yields
 
