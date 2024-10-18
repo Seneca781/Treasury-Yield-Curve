@@ -6,43 +6,34 @@ import ycnbc
 # Initialize the Dash app
 app = dash.Dash(__name__)
 
-# Current Federal Funds Rate
-CURRENT_FED_RATE = 5.13  # Update as necessary
-
 # Create the layout
-app.layout = html.Div(children=[
-    html.H1(children='Daily Economics', style={'textAlign': 'center', 'color': '#4a4a4a', 'fontSize': '36px'}),
+app.layout = html.Div(style={'backgroundColor': '#f9f9f9', 'padding': '20px'}, children=[
+    html.H1(children='Daily Economics', style={'textAlign': 'center', 'color': '#2c3e50'}),
 
     dcc.Graph(id='yield-curve'),
 
     dcc.Interval(
         id='interval-component',
-        interval=1 * 1000,  # Update every 1 second
+        interval=1*1000,  # Update every 1 second
         n_intervals=0  # This counts how many times the interval has triggered
     ),
 
     html.Div(children=[
-        html.H2(children='Key Slopes of the Yield Curve', style={'textAlign': 'center'}),
-        html.Div(id='slope-info', style={'textAlign': 'center', 'fontSize': '20px', 'margin': '10px 0'})
-    ]),
-
-    # Macro indicators section
-    html.Div(id='macro-indicators', style={
-        'textAlign': 'center',
-        'marginTop': '20px',
-        'padding': '20px',
-        'border': '1px solid #dcdcdc',
-        'borderRadius': '10px',
-        'backgroundColor': '#f9f9f9'
-    }),
+        html.H2(children='Key Indicators', style={'textAlign': 'center', 'color': '#2980b9'}),
+        html.Div(id='slope-info', style={'textAlign': 'center', 'color': '#34495e'}),
+        html.Div(id='steepening-info', style={'textAlign': 'center', 'color': '#34495e'}),
+        html.Div(id='fed-rate-info', style={'textAlign': 'center', 'color': '#34495e'}),
+        html.Div(id='overall-change-info', style={'textAlign': 'center', 'color': '#34495e'}),
+    ])
 ])
 
-
-# Define callback to update graph, slopes, and macro indicators
+# Define callback to update graph and indicators
 @app.callback(
     Output('yield-curve', 'figure'),
     Output('slope-info', 'children'),
-    Output('macro-indicators', 'children'),
+    Output('steepening-info', 'children'),
+    Output('fed-rate-info', 'children'),
+    Output('overall-change-info', 'children'),
     Input('interval-component', 'n_intervals')
 )
 def update_graph(n):
@@ -54,6 +45,7 @@ def update_graph(n):
     maturities = []
     yields = []
 
+    # Filter U.S. bonds and extract maturity and yield
     for bond in bonds_data:
         if bond['symbol'].startswith('US'):
             maturities.append(bond['symbol'])
@@ -63,37 +55,44 @@ def update_graph(n):
     yield_curve_fig = go.Figure()
     yield_curve_fig.add_trace(go.Scatter(x=maturities, y=yields, mode='lines+markers'))
 
-    # Update layout with axis titles
+    # Add axis labels
     yield_curve_fig.update_layout(
         xaxis_title='Maturity',
         yaxis_title='Yield (%)',
-        title='U.S. Treasury Yield Curve',
-        transition_duration=500
+        title='Treasury Yield Curve',
+        plot_bgcolor='#f9f9f9',  # Optional: add a light background for the plot
+        font=dict(color='#34495e')  # Font color for the plot text
     )
 
-    # Fetch yields for 2-year and 10-year bonds
-    yield_2yr = next((float(bond['last'].replace('%', '').strip()) for bond in bonds_data if bond['symbol'] == 'US2Y'),
-                     None)
-    yield_10yr = next(
-        (float(bond['last'].replace('%', '').strip()) for bond in bonds_data if bond['symbol'] == 'US10Y'), None)
+    # Filter specific yields for 2-year and 10-year
+    yield_2yr = None
+    yield_10yr = None
+    for bond in bonds_data:
+        if bond['symbol'] == 'US2Y':
+            yield_2yr = float(bond['last'].replace('%', '').strip())
+        elif bond['symbol'] == 'US10Y':
+            yield_10yr = float(bond['last'].replace('%', '').strip())
 
     # Calculate slope (2-year to 10-year)
     slope_2_10 = yield_10yr - yield_2yr if yield_2yr and yield_10yr else None
 
+    # Determine steepening or flattening
+    steepening_info = 'Curve is Steepening' if slope_2_10 > 0 else 'Curve is Flattening'
+
+    # Current Fed Rate
+    fed_rate = 5.13
+    fed_rate_info = f'Current Fed Rate: {fed_rate:.2f}%'
+
+    # Overall change logic (this should ideally come from your historical data)
+    overall_change = slope_2_10  # This should be based on historical data comparison
+    overall_change_color = 'green' if overall_change > 0 else 'red' if overall_change < 0 else 'black'
+    overall_change_info = f'Overall Change (2/10YR): {overall_change:.2f}%'
+    overall_change_info = html.Div(overall_change_info, style={'color': overall_change_color})
+
     # Update slope info
     slope_info = f'2-Year to 10-Year Slope: {slope_2_10:.2f}%' if slope_2_10 is not None else 'Data not available'
 
-    # Determine if the curve is flattening, steepening, or flat
-    curve_trend = 'Steepening' if slope_2_10 > 0 else 'Flattening' if slope_2_10 < 0 else 'Flat'
-
-    # Create macro indicators text
-    macro_info = html.Div(children=[
-        html.P(f'Current Fed Rate: {CURRENT_FED_RATE}%', style={'fontSize': '20px'}),
-        html.P(f'Yield Curve Trend: {curve_trend}', style={'fontSize': '20px'})
-    ])
-
-    return yield_curve_fig, slope_info, macro_info
-
+    return yield_curve_fig, slope_info, steepening_info, fed_rate_info, overall_change_info
 
 # Run the app
 if __name__ == '__main__':
